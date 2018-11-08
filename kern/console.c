@@ -129,6 +129,14 @@ static unsigned addr_6845;
 static uint16_t *crt_buf;
 static uint16_t crt_pos;
 
+extern char ansi_fmt_buffer[100];
+extern uint16_t ansi_fmt_ptr;
+
+extern uint16_t foreground_color;
+extern uint16_t background_color;
+
+extern ansi_state state;
+
 static void
 cga_init(void)
 {
@@ -155,16 +163,26 @@ cga_init(void)
 
 	crt_buf = (uint16_t*) cp;
 	crt_pos = pos;
+
+	// Nastavenie defaultnych farieb
+
+	ansi_fmt_ptr = 0;
+
+	foreground_color = 7;
+	background_color = 0;
+
+	state = NORMAL;
 }
-
-
 
 static void
 cga_putc(int c)
 {
-	// if no attribute given, then use black on white
-	if (!(c & ~0xFF))
-		c |= 0x0700;
+	// // if no attribute given, then use black on white
+	// if (!(c & ~0xFF))
+	// 	c |= 0x0700;
+
+	// Nastavenie farieb
+ 	c = (((c&0xff)|foreground_color<<8)|background_color<<12);
 
 	switch (c & 0xff) {
 	case '\b':
@@ -426,6 +444,19 @@ cons_getc(void)
 		return c;
 	}
 	return 0;
+}
+
+void
+cons_ctrl_putc(int c)
+{
+	serial_putc(c);
+	lpt_putc(c);
+}
+
+void
+cons_disp_putc(int c)
+{
+	cga_putc(c);
 }
 
 // output a character to the console

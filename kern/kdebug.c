@@ -205,6 +205,18 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	which one.
 	// Your code here.
 
+	// N_SLINE - text segment line number
+	// Viac info v inc/stab.h
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	
+	// Ak sa nenasla zhoda, rline bude lline - 1, cize zlyha if.
+	// Viac info vyssie v tomto subore o funkcii stab_binsearch().
+	if(lline <= rline) {
+
+		// n_desc - description field
+		// Viac info v inc/stab.h
+		info->eip_line = stabs[lline].n_desc;
+	} else return -1;
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
