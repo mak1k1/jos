@@ -282,8 +282,8 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
 
-	uintptr_t start = ROUNDDOWN(va, PGSIZE),
-				end = ROUNDUP(va + len, PGSIZE);
+	uintptr_t start = ROUNDDOWN((uintptr_t) va, PGSIZE),
+				end = ROUNDUP((uintptr_t) va + len, PGSIZE);
 
 	int perms = PTE_P | PTE_U | PTE_W;
 
@@ -293,7 +293,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 		if (!(p = page_alloc(ALLOC_ZERO)))
 			panic("region_alloc: page_alloc failed, out of memory.");
 
-		if(!page_insert(e->env_pgdir, p, start, perms))
+		if(!page_insert(e->env_pgdir, p,(void *) start, perms))
 			panic("region_alloc: page_insert failed, out of memory.");
 	}
 }
@@ -366,8 +366,8 @@ load_icode(struct Env *e, uint8_t *binary)
 		if(ph->p_type == ELF_PROG_LOAD) {
 			region_alloc(e, ph->p_va, ph->p_memsz);
 
-			memset(ph->p_va, 0, ph->p_memsz);
-			memcpy(ph->p_va, binary + ph->p_offset, ph->p_filesz);
+			memset((void*) ph->p_va, 0, ph->p_memsz);
+			memcpy((void*) ph->p_va, binary + ph->p_offset, ph->p_filesz);
 		}
 	}
 
@@ -378,7 +378,7 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	// LAB 3: Your code here.
 
-	region_alloc(e, USTACKTOP - PGSIZE, PGSIZE);
+	region_alloc(e, (void*) USTACKTOP - PGSIZE, PGSIZE);
 
 	lcr3(PADDR(kern_pgdir));
 }
