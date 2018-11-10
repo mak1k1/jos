@@ -293,7 +293,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 		if (!(p = page_alloc(ALLOC_ZERO)))
 			panic("region_alloc: page_alloc failed, out of memory.");
 
-		if(!page_insert(e->env_pgdir, p,(void *) start, perms))
+		if(page_insert(e->env_pgdir, p,(void *) start, perms))
 			panic("region_alloc: page_insert failed, out of memory.");
 	}
 }
