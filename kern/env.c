@@ -121,6 +121,7 @@ env_init(void)
 
 	for (int i = NENV; i >=0; --i) {
 		envs[i].env_link = env_free_list;
+		envs[i].env_id = 0;
 		env_free_list = &envs[i];
 	}
 
