@@ -25,6 +25,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	// Pridany command na spustenie funkcie "mon_backtrace"
+	{ "backtrace", "Display a backtrace", mon_backtrace },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -58,7 +60,64 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	// Pomocne premenne na vypis + pointrovu aritmetiku.
+	// uint32_t je len inak zapisany unsigned int, potrebujeme 32-bitovy, lebo
+	// uz sme v chranenom mode procesora a pouzivame 32-bitovy mod
+	uint32_t ebp, eip, args[5];
+
+	// Pomocna struktura, kam budu zapisane info o funkcii, ktoru backtracujeme.
+	// Zapise ich tam debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info), viac nizsie
+	struct Eipdebuginfo eip_dbinfo;
+
+	// Funkcia na zistenie ebp, vracia 32-bitovy int(nie pointer!)
+	// Viac info o funkcii v inc/x86.h
+	ebp = read_ebp();
+	
+	cprintf("Stack backtrace:\n");
+
+	// Kedze chceme aj posledne hodnoty po tom ako sa ebp rovna null pointeru,
+	// musime pouzit do/while
+	do {
+		// Adresa na vratenie po skonceni funkcie je prva po ebp.
+		// Musime pretypovat na pointer, kedze chceme hodnotu na tejto adrese.
+		// Tento "array" zapis je to iste ako *(((uint32_t *)ebp) + 1)
+		eip = ((uint32_t *)ebp)[1];
+
+		// Dalsie hodnoty na stacku po navratovej adrese su argumenty funkcie.
+		// Na stack sa zapisuju opacne, cize teraz ich citame spravne, z lava do prava.
+		// Nevieme presne zistit kolko ich je, lebo za nimi mozu byt lok. premenne
+		// predoslej funkcie. Tak precitame 5 hodnot. Nie vsetky teda musia byt argumenty
+		// backtracovanej funckie.
+		args[0] = ((uint32_t *)ebp)[2];
+		args[1] = ((uint32_t *)ebp)[3];
+		args[2] = ((uint32_t *)ebp)[4];
+		args[3] = ((uint32_t *)ebp)[5];
+		args[4] = ((uint32_t *)ebp)[6];
+
+		// Vypis ebp, eip a 5 argumentov.
+		// %08x vypise hexadecimalne cislo, ktore ma 8 cislic, ak nema tak doplni nulami.
+		// Kedze su uz tieto premenne pointre, nemusime do printu pred ne dat '&'.
+		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
+			ebp, eip, args[0], args[1], args[2], args[3], args[4]);
+
+		// Ak bola adresa v premennej eip spravna, tak debuginfo_eip vrati 0, inak -1
+		// Zisti info o funkcii, do ktorej ukazuje adresa ulozena v eip a hodi to info
+		// do eip_dbinfo. Viac info o funkcii v kern/kdebug.c
+		if(!debuginfo_eip(eip, &eip_dbinfo))
+		{
+			cprintf("         %s:%d: %.*s+%d\n",
+				eip_dbinfo.eip_file, eip_dbinfo.eip_line,
+				eip_dbinfo.eip_fn_namelen, eip_dbinfo.eip_fn_name,
+				eip - eip_dbinfo.eip_fn_addr);
+		}
+
+		// V ebp je ulozena adresa predosleho ebp, cize len dereferencujeme
+		// a tym sa posunieme na dalsie ebp
+		ebp = *((uint32_t *) ebp);
+
+	// Ak narazime na ebp rovne null pointeru, prebehne posledny
+	// cyklus, aby sa vypisala posledna funkcia v ktorej sa nachadzame
+	} while(ebp);
 	return 0;
 }
 
