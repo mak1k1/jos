@@ -23,7 +23,16 @@ int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
-	panic("ipc_recv not implemented");
+	int value;
+	if(!pg) return sys_ipc_recv(1);
+	if(from_env_store) from_env_store = thisenv->env_ipc_from;
+	perm_store = thisenv->env_ipc_perm;
+	if(!(value = syscall(SYS_ipc_recv(pg)))) {
+		*from_env_store = 0;
+		*perm_store =0;
+		return -E_INVAL;
+	}
+
 	return 0;
 }
 

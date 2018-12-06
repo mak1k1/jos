@@ -283,7 +283,7 @@ mem_init_mp(void)
 	// address kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP), and is
 	// divided into two pieces, just like the single stack you set up in
 	// mem_init:
-	//     * [kstacktop_i - KSTKSIZE, kstacktop_i)
+	//     * [kstacktop_i - KSTKSIE, kstacktop_i)
 	//          -- backed by physical memory
 	//     * [kstacktop_i - (KSTKSIZE + KSTKGAP), kstacktop_i - KSTKSIZE)
 	//          -- not backed; so if the kernel overflows its stack,
@@ -292,7 +292,13 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	for(int i=0;i<NCPU;++i) {
+	uintptr_t kstacktop_i = KSTACKTOP -KSTKSIZE;
+	boot_map_region(kern_pgdir,
+					kstacktop_i-i*(KSTKSIZE + KSTKGAP),
+					KSTKSIZE,PADDR(percpu_kstacks[i]),
+					PTE_W);
+	}
 }
 
 // --------------------------------------------------------------
@@ -313,6 +319,8 @@ page_init(void)
 	// LAB 4:
 	// Change your code to mark the physical page at MPENTRY_PADDR
 	// as in use
+
+
 
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
@@ -340,7 +348,11 @@ page_init(void)
 		} else if ((page2pa(&pages[i]) + PGSIZE >= IOPHYSMEM) && (page2kva(&pages[i]) < boot_alloc(0))) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
-		} else {
+		} else if(page2pa(&pages[i]) == MPENTRY_PADDR ) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+		} 
+		else {
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
@@ -615,7 +627,12 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+
+	size = ROUNDUP(size,PGSIZE);
+	if(base + size >= MMIOLIM) panic("mmio_map_region: Out of memory");
+	boot_map_region(kern_pgdir, base, size, pa, PTE_PCD | PTE_PWT | PTE_W);
+	base += size;
+	return (void *)(base - size);
 }
 
 static uintptr_t user_mem_check_addr;

@@ -1,4 +1,4 @@
-// User-level page fault handler support.
+	// User-level page fault handler support.
 // Rather than register the C page fault handler directly with the
 // kernel as the page fault handler, we register the assembly language
 // wrapper in pfentry.S, which in turns calls the registered C
@@ -25,13 +25,17 @@ void
 set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 {
 	int r;
+	envid_t e = sys_getenvid();
 
 	if (_pgfault_handler == 0) {
 		// First time through!
 		// LAB 4: Your code here.
-		panic("set_pgfault_handler not implemented");
+		if ((r = sys_page_alloc(e, (void *) (UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0)
+		panic("set_pgfault_handler: %e",r);
 	}
 
 	// Save handler pointer for assembly to call.
 	_pgfault_handler = handler;
+	if((r = sys_env_set_pgfault_upcall(e, _pgfault_handler)) < 0)
+		panic("set_pgfault_handler: %e",r);
 }
